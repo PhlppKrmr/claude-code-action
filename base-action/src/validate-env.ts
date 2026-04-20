@@ -1,25 +1,31 @@
 /**
  * Validates the environment variables required for running Claude Code
- * based on the selected provider (Anthropic API, AWS Bedrock, Google Vertex AI, or Microsoft Foundry)
+ * based on the selected provider (Anthropic API, AWS Bedrock, Google Vertex AI, Microsoft Foundry, or LiteLLM/SAP AI Core)
  */
 export function validateEnvironmentVariables() {
   const useBedrock = process.env.CLAUDE_CODE_USE_BEDROCK === "1";
   const useVertex = process.env.CLAUDE_CODE_USE_VERTEX === "1";
   const useFoundry = process.env.CLAUDE_CODE_USE_FOUNDRY === "1";
+  const useLiteLLM = process.env.CLAUDE_CODE_USE_LITELLM === "1";
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
   const claudeCodeOAuthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
 
   const errors: string[] = [];
 
   // Check for mutual exclusivity between providers
-  const activeProviders = [useBedrock, useVertex, useFoundry].filter(Boolean);
+  const activeProviders = [
+    useBedrock,
+    useVertex,
+    useFoundry,
+    useLiteLLM,
+  ].filter(Boolean);
   if (activeProviders.length > 1) {
     errors.push(
-      "Cannot use multiple providers simultaneously. Please set only one of: CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX, or CLAUDE_CODE_USE_FOUNDRY.",
+      "Cannot use multiple providers simultaneously. Please set only one of: CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX, CLAUDE_CODE_USE_FOUNDRY, or CLAUDE_CODE_USE_LITELLM.",
     );
   }
 
-  if (!useBedrock && !useVertex && !useFoundry) {
+  if (!useBedrock && !useVertex && !useFoundry && !useLiteLLM) {
     if (!anthropicApiKey && !claudeCodeOAuthToken) {
       errors.push(
         "Either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN is required when using direct Anthropic API.",
@@ -64,6 +70,22 @@ export function validateEnvironmentVariables() {
     if (!foundryResource && !foundryBaseUrl) {
       errors.push(
         "Either ANTHROPIC_FOUNDRY_RESOURCE or ANTHROPIC_FOUNDRY_BASE_URL is required when using Microsoft Foundry.",
+      );
+    }
+  } else if (useLiteLLM) {
+    // LiteLLM/SAP AI Core: the proxy step sets ANTHROPIC_BASE_URL and ANTHROPIC_API_KEY
+    // automatically. We just validate they were set (proxy started successfully).
+    const baseUrl = process.env.ANTHROPIC_BASE_URL;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+
+    if (!baseUrl) {
+      errors.push(
+        "ANTHROPIC_BASE_URL is required when using LiteLLM. This should be set automatically by the LiteLLM proxy startup step.",
+      );
+    }
+    if (!apiKey) {
+      errors.push(
+        "ANTHROPIC_API_KEY is required when using LiteLLM. This should be set automatically by the LiteLLM proxy startup step.",
       );
     }
   }
